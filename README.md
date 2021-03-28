@@ -91,7 +91,7 @@ It will also watch these gems for any changes (at the filesystem level) and **au
 
 ## Using the server from Docker builds
 
-No changes are required to your `Dockerfile.
+No changes are required to your `Dockerfile`.
 
 You will need to tell your `Gemfile` to use the mirrored server as a source.  Note that `host.docker.internal` is the server hostname from the perspective of a Docker build:
 
