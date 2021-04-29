@@ -1,4 +1,4 @@
-# Local Gemstash for Ruby Development in Docker Containers
+# Local Gemstash for Ruby Development in Docker Containers [![Available on Docker Hub](https://img.shields.io/docker/pulls/ianfixes/local_gemstasher.svg)](https://hub.docker.com/r/ianfixes/local_gemstasher)
 
 **Problem**: Specifying your gem dependencies by `path:` won't work if you are in a `docker build` environment unless you add your entire development directory to the build context.
 
