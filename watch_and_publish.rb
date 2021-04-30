@@ -209,7 +209,7 @@ begin
       # find out which gems were changed. on the first run, ALL of them are changed
       changed_gems = []
       changes.each do |filename, event|
-        if filename.empty? && event.empty?  # "immedate" -- first time
+        if filename.empty? && event.empty?  # "immediate" -- first time
           changed_gems = valid_gems
         else
           Pathname.new(filename).ascend { |v| changed_gems << v if valid_gems.include?(v) }
