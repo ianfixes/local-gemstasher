@@ -26,9 +26,6 @@ RUN true && \
     build-base \
     openssl \
     sqlite-dev \
-  # && gem install gemstash --version 2.1.0 \
-  # && sh -c 'which gemstash' \
-  # && gemstash --version \
   && gem update --system 3.0.5 \
   && gem --version \
   && gem install bundler --version 2.1.4 \
@@ -36,35 +33,8 @@ RUN true && \
   && apk del build-base \
   && true
 
-# RUN true \
-#   && mkdir -p ~/.gem \
-#   && touch ~/.gem/credentials \
-#   && chmod 600 ~/.gem/credentials \
-#   && echo "---" > ~/.gem/credentials \
-#   && bundle exec gemstash authorize | awk -F": " "{print \":$GEM_KEY_NAME: \" \$2}" >> ~/.gem/credentials \
-#   && cat ~/.gem/credentials
-
-# build dummy gem /foo.gem
-RUN true \
-  && cd / \
-  && bundle gem foo --no-exe --no-ext --no-mit --no-coc \
-  && cd foo \
-  && cat foo.gemspec \
-     | sed 's/git ls-files -z/find . -print0 -type f/g' \
-     | sed 's/TODO: //g' \
-     | grep -v email \
-     | grep -v URL \
-     | grep -v spec.metadata \
-     > foo2.gemspec \
-#  && cat foo2.gemspec \
-  && mv foo2.gemspec foo.gemspec \
-  && gem build foo.gemspec -o /foo.gem
-
-
 COPY watch_and_publish.rb $APPDIR/
 
 
-#VOLUME /var/lib/gemstash
 EXPOSE ${SERVER_PORT}
-#CMD [ "/app/bin/start.sh" ]
 ENTRYPOINT ["bundle", "exec", "ruby", "watch_and_publish.rb"]
