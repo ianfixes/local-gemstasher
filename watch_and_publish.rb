@@ -4,6 +4,7 @@ require 'timeout'
 require 'shellwords'
 require 'rubygems'
 require 'ostruct'
+require 'colorize'
 
 def usage
   [
@@ -39,8 +40,9 @@ end
 def annotated_command(*args, **kwargs)
   IO.popen(*args, **kwargs, err: [:child, :out]) do |io|
     name = yield(io) # this is a backwards way to do it, but I need a way to not mangle input args here
+    #STDERR.puts "#{name}$ #{args} #{kwargs}"
     io.each do |line|
-      STDERR.puts "#{name}: #{line}"
+      STDERR.puts "#{name}: #{line}" unless line.strip.empty?
     end
   end
 end
@@ -83,16 +85,16 @@ end
 def run_gemstash
   await_port_status(false) # don't start until any old servers are dead
 
-  STDERR.puts "Clearing gemstash dir"
+  STDERR.puts "Clearing gemstash dir".yellow
   annotated_command("rm -rfv #{ENV["GEMSTASH_WORKDIR"]}/*") { "SERVER CLEANUP" }
 
   # generate the new key
   key = `#{gemstash_command("authorize")}`.lines.first.split(":")[1].strip
-  STDERR.puts "Using GEM_HOST_API_KEY=#{key}"
+  STDERR.puts "Using GEM_HOST_API_KEY=#{key}".yellow
 
   # generate the new thread and IO object
   io = nil
-  STDERR.puts "Launching gemstash thread"
+  STDERR.puts "Launching gemstash thread".yellow
   thread = Thread.new do
     annotated_command(gemstash_command("start", "--no-daemonize")) do |io_obj|
       io = io_obj
@@ -155,20 +157,23 @@ def publish_gem(gem_dir, key)
 
   tmp_build_gem = Pathname.new(ENV["GEM_BUILD_DIR"]) + "tmp.gem"
   tmp_build_gem.unlink if tmp_build_gem.exist?
-  return STDERR.puts "FAILED TO DELETE OLD TMP GEM" if tmp_build_gem.exist?
+  return STDERR.puts "FAILED TO DELETE OLD TMP GEM".red if tmp_build_gem.exist?
 
   Dir.chdir(gem_dir) do
     annotated_command(["gem", "build", "-o", tmp_build_gem.to_s, gemspec.to_s].shelljoin) { "GEM BUILD" }
   end
-  return STDERR.puts "FAILED TO BUILD #{gemspec}" unless tmp_build_gem.exist?
+  return STDERR.puts "FAILED TO BUILD #{gemspec}".red unless tmp_build_gem.exist?
 
   annotated_command(
     {"GEM_HOST_API_KEY" => key},
     ["gem", "push", "--host", server_address, tmp_build_gem.to_s].shelljoin
   ) { "GEM PUSH" }
-  STDERR.puts "Completed gem push: #{gem_version_exists(name, version)}"
+
+  completion_message = "Gem pushed successfully"
+  completed_result = gem_version_exists(name, version) ? "#{name} (#{version})".green : "no".red
+  STDERR.puts "#{completion_message.yellow}: #{completed_result}"
 rescue Exception => e
-  STDERR.puts "publish_gem(#{gem_dir}) FAILED: #{e}"
+  STDERR.puts "publish_gem(#{gem_dir}) FAILED: #{e}".red
 end
 
 
@@ -177,7 +182,7 @@ end
 # paths here because threads and Dir.chdir don't mix (unless you like warnings)
 def specified_gems
   gem_basedir = ENV["LOCAL_GEMS_DIR"]
-  STDERR.puts "Will look for gems relative to local mount volume #{gem_basedir}"
+  STDERR.puts "Will look for gems relative to local mount volume #{gem_basedir}".yellow
   Dir.chdir(gem_basedir) do
     gem_basedir_contents = Dir["*"]
 
@@ -187,16 +192,16 @@ def specified_gems
 
     ARGV.map { |d| Pathname.new(gem_basedir) + (d.end_with?("/") ? d : "#{d}/") }.each do |gemdir|
       what = "WARNING: requested gem dir '#{gemdir}'"
-      next STDERR.puts "#{what} doesn't exist (yet?)" unless gemdir.exist?
-      next STDERR.puts "#{what} is a file" if gemdir.file?
-      next STDERR.puts "#{what} isn't a dir ???" unless gemdir.directory?
+      next STDERR.puts "#{what} doesn't exist (yet?)".red unless gemdir.exist?
+      next STDERR.puts "#{what} is a file".red if gemdir.file?
+      next STDERR.puts "#{what} isn't a dir ???".red unless gemdir.directory?
     end
   end
 
 end
 
 begin
-  nope("No gem paths were specified\n#{usage}") if ARGV.empty?
+  nope("No gem paths were specified\n#{usage}".red) if ARGV.empty?
 
   # read inputs and print warnings as appropriate
   gems = specified_gems
@@ -205,6 +210,7 @@ begin
 
   Dir.chdir(ENV["LOCAL_GEMS_DIR"]) do
     Filewatcher.new(gems, interval: 0.7, immediate: true).watch do |changes|
+      STDERR.puts
       valid_gems = gems.select(&:exist?).map(&:realpath) # because maybe they were added
 
       # find out which gems were changed. on the first run, ALL of them are changed
@@ -216,17 +222,18 @@ begin
           Pathname.new(filename).ascend { |v| changed_gems << v if valid_gems.include?(v) }
         end
       end
-      STDERR.puts "Changed gems: #{changed_gems}"
+      changed_gems = changed_gems.uniq
+      STDERR.puts "Reacting to changes in gems: #{changed_gems.map(&:to_s)}".yellow
 
       # can't push existing gems.  can't re-push yanked gems. can only reboot the server with blank config.
       if changed_gems.any? { |gem_dir| gem_version_exists_by_dir(gem_dir) }
-        STDERR.puts("Rebooting server")
+        STDERR.puts "Rebooting server".yellow
         Process.kill("KILL", stash_runner.io.pid)
         stash_runner.thread.exit
         stash_runner.thread.join
         stash_runner = run_gemstash
       end
-      STDERR.puts("Publishing gems")
+      STDERR.puts "Publishing gems".yellow
       changed_gems.each { |gem_dir| publish_gem(gem_dir, stash_runner.key) }
     end
   end

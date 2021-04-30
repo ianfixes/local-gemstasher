@@ -6,6 +6,7 @@ GEM
       i18n (>= 0.7, < 2)
       minitest (~> 5.1)
       tzinfo (~> 1.1)
+    colorize (0.8.1)
     concurrent-ruby (1.1.8)
     dalli (2.7.11)
     faraday (0.17.4)
@@ -59,6 +60,7 @@ PLATFORMS
   ruby
 
 DEPENDENCIES
+  colorize (~> 0.8)
   filewatcher (~> 2.0.0beta3)
   gemstash (~> 2.1.0)
 
