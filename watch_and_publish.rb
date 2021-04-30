@@ -134,7 +134,8 @@ end
 
 # ask our local server if it has our gem
 def gem_version_exists(name, version)
-  result = `gem list -r --clear-sources --source #{server_address} --all -e #{name}`
+  result = `gem list -r --clear-sources --source #{server_address} --all --prerelease -e #{name}`
+  result.lines.each { |l| STDERR.puts "GEM LIST: #{l}" }
   lines = result.lines.select { |l| l.start_with?(name) }
   return false if lines.empty?
 
